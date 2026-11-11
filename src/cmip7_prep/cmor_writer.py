@@ -68,7 +68,8 @@ def iceband_values_and_bounds(ncat) -> Tuple[np.ndarray, np.ndarray]:
     bounds = np.column_stack((edges[:-1], edges[1:]))
     values = bounds.mean(axis=1)
     open_category = bounds[:, 1] > OPEN_ICE_CATEGORY_M
-    values[open_category] = bounds[open_category, 0]
+    values[open_category] = bounds[open_category, 0] +  \
+        0.02*(OPEN_ICE_CATEGORY_M-bounds[open_category, 0])  # Should be a value > than bounds[:,0]
     return values, bounds
 
 
@@ -687,8 +688,15 @@ class CmorSession(
                 "The iceband axis is built from CICE's NCAT variable, which is "
                 "not in the dataset."
             )
-        values, bounds = iceband_values_and_bounds(ds["NCAT"].values)
+        """
+        NCAT should be a 1-D vector, for some unkonwn reason, it might occure here with the
+        dimensions (time,nc). Pick the first nc values  of the flattend vector
+        """
+        nc=ds.sizes['nc']
+        ncat=ds["NCAT"].values.ravel()[:nc]
+        values, bounds = iceband_values_and_bounds(ncat)
         logger.debug("Setting iceband axis with bounds %s", bounds.tolist())
+        logger.debug("Setting iceband axis with values %s", values.tolist())
         return cmor.axis(
             table_entry="iceband",
             units="m",
